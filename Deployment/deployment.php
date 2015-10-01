@@ -11,6 +11,7 @@ require __DIR__ . '/libs/Preprocessor.php';
 require __DIR__ . '/libs/CommandLine.php';
 require __DIR__ . '/libs/CliRunner.php';
 require __DIR__ . '/libs/exceptions.php';
+require __DIR__ . '/../vendor/pclzip/pclzip/pclzip.lib.php';
 
 
 $runner = new CliRunner;

@@ -142,6 +142,7 @@ class CliRunner
 		$deployment->runBefore = self::toArray($config['before'], TRUE);
 		$deployment->runAfter = self::toArray($config['after'], TRUE);
 		$deployment->testMode = !empty($config['test']) || $this->mode === 'test';
+		$deployment->zip = !empty($config['zip']) ? $config['zip'] : FALSE;
 
 		return $deployment;
 	}

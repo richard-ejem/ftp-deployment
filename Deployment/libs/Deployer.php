@@ -8,6 +8,8 @@
 
 namespace Deployment;
 
+use PclZip;
+
 
 /**
  * Synchronizes local and remote.
@@ -56,6 +58,9 @@ class Deployer
 
 	/** @var Server */
 	private $server;
+
+	/** @var bool|array zip before uploading: false or ['documentRoot' => ? ,'serverUrl' => ? ]  */
+	public $zip = FALSE;
 
 
 
@@ -140,7 +145,30 @@ class Deployer
 
 		if ($toUpload) {
 			$this->logger->log("\nUploading:");
-			$this->uploadFiles($toUpload);
+			if ($this->zip) {
+				$size = $this->uploadFilesZipped($toUpload);
+				$unzipScript = tempnam($this->tempDir, 'unzip');
+				file_put_contents($unzipScript,
+					str_replace(
+						'%ZIP_PATH%',
+						str_repeat('../', $this->getDirLevel($this->zip['documentRoot'])).'.deployment.zip',
+						file_get_contents(__DIR__.'/unzip.php.bin')
+					)
+				);
+				$this->server->writeFile($unzipScript, ($unzipRemote = $this->zip['documentRoot'] . 'unzip.php') . self::TEMPORARY_SUFFIX);
+				$this->server->renameFile($unzipRemote. self::TEMPORARY_SUFFIX, $unzipRemote);
+				$this->logger->log('unzipping on remote: ' . $this->zip['serverUrl'].'unzip.php');
+				$f = fopen($this->zip['serverUrl'].'unzip.php', 'r');
+				while (($line = fgets($f)) !== FALSE) {
+					$percent = $line * 100 / $size;
+					printf("Unzipping [%3d%%]\r", $percent);
+				}
+				fclose($f);
+				$this->logger->log("\nDeleting zip archive");
+				$this->server->removeFile('.deployment.zip');
+			} else {
+				$this->uploadFiles($toUpload);
+			}
 			unlink($deploymentFile);
 		}
 
@@ -264,6 +292,45 @@ class Deployer
 			$this->writeProgress($num + 1, count($toRename), "Renaming $file", NULL, 'olive');
 			$this->server->renameFile($file . self::TEMPORARY_SUFFIX, $file);
 		}
+	}
+
+	/**
+	 * Uploades files.
+	 * @return void
+	 */
+	private function uploadFilesZipped(array $files)
+	{
+		$size = 0;
+		$zip = new PclZip($zipFile = tempnam($this->tempDir, 'deployment.zip'));
+		$this->logger->log('zipFile is ' . $zipFile);
+		$toRename = [];
+		$prevDir = NULL;
+		foreach ($files as $num => $file) {
+			$remoteFile = $file;
+			$isDir = substr($remoteFile, -1) === '/';
+
+			if ($isDir) {
+				$this->writeProgress($num + 1, count($files), $file, NULL, 'green');
+				continue;
+			}
+
+			$localFile = $this->preprocess($orig = $this->local . $file);
+
+			$toRename[] = $remoteFile;
+
+			//$this->logger->log('adding ' . $localFile.' as '.$remoteFile);
+			$zip->add([[
+				PCLZIP_ATT_FILE_NAME => $localFile,
+				PCLZIP_ATT_FILE_NEW_FULL_NAME => $remoteFile,
+			]]);
+			$size += filesize($localFile);
+			$this->writeProgress($num + 1, count($files), $file, NULL, 'green');
+		}
+
+		$this->server->writeFile($zipFile, '.deployment.zip', function($percent) {
+			$this->writeProgress(1, 1, 'deploying zip archive', $percent, 'green');
+		});
+		return $size;
 	}
 
 
@@ -467,4 +534,13 @@ class Deployer
 		}
 	}
 
+	private function getDirLevel($path) {
+		$path = '/'.trim($path, '/').'/';
+		if (strpos($path, '..') !== FALSE) {
+			throw new \InvalidArgumentException('path cannot contain links to parent folder');
+		}
+		$path = str_replace('./', '', $path);
+		$path = preg_replace('~/+~', '/', $path);
+		return substr_count($path, '/')-1;
+	}
 }

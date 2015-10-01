@@ -1,0 +1,44 @@
+<?php
+define('UNZIP_CHUNK', 65536);
+
+function out($text)
+{
+	echo $text . "\n";
+	flush();
+}
+
+ini_set('zlib.output_compression',0);
+ini_set('implicit_flush',1);
+@ob_end_clean();
+ob_implicit_flush(1);
+ini_set('output_buffering', 0);
+
+header('content-type:text/plain;charset=utf-8');
+$filename = '.deployment.zip';
+chdir(dirname($filename));
+$zip = zip_open(basename($filename));
+$size = 0;
+if ($zip) {
+	while ($zip_entry = zip_read($zip)) {
+		$name = zip_entry_name($zip_entry);
+		if (substr($name, -1, 1) == '/') {//dir
+			$name = substr($name, 0, strlen($name) - 1);
+			mkdir($name, 0777, TRUE);
+		} else { //file
+			$extractTo = './' . ltrim(zip_entry_name($zip_entry), '/');
+			@mkdir(dirname($extractTo), 0777, TRUE); //may already exist
+			$fp = fopen($extractTo, "w");
+			if (zip_entry_open($zip, $zip_entry, "r")) {
+				for ($i = 0; $i < zip_entry_filesize($zip_entry); $i += UNZIP_CHUNK) {
+					$buf = zip_entry_read($zip_entry, UNZIP_CHUNK);
+					fwrite($fp, "$buf");
+				}
+				zip_entry_close($zip_entry);
+				fclose($fp);
+				$size += filesize($extractTo);
+				out($size);
+			}
+		}
+	}
+	zip_close($zip);
+}

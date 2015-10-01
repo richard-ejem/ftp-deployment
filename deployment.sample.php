@@ -26,6 +26,10 @@ return [
 			'temp/cache',
 		],
 		'preprocess' => FALSE,
+		'zip' => [
+			'documentRoot' => 'www',
+			'serverUrl' => 'http://example.com/',
+		]
 	],
 
 	'tempdir' => __DIR__ . '/temp',
