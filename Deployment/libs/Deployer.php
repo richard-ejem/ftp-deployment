@@ -164,8 +164,10 @@ class Deployer
 					printf("Unzipping [%3d%%]\r", $percent);
 				}
 				fclose($f);
-				$this->logger->log("\nDeleting zip archive");
-				$this->server->removeFile('.deployment.zip');
+				if (!empty($this->zip['deleteZipAfterDeploy'])) {
+					$this->logger->log("\nDeleting zip archive");
+					$this->server->removeFile('.deployment.zip');
+				}
 			} else {
 				$this->uploadFiles($toUpload);
 			}
