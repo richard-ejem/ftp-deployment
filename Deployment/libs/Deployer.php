@@ -155,7 +155,7 @@ class Deployer
 						file_get_contents(__DIR__.'/unzip.php.bin')
 					)
 				);
-				$this->server->writeFile($unzipScript, ($unzipRemote = $this->zip['documentRoot'] . 'unzip.php') . self::TEMPORARY_SUFFIX);
+				$this->server->writeFile($unzipScript, ($unzipRemote = $this->zip['documentRoot'] . '/unzip.php') . self::TEMPORARY_SUFFIX);
 				$this->server->renameFile($unzipRemote. self::TEMPORARY_SUFFIX, $unzipRemote);
 				$this->logger->log('unzipping on remote: ' . $this->zip['serverUrl'].'unzip.php');
 				$f = fopen($this->zip['serverUrl'].'unzip.php', 'r');
